@@ -2,14 +2,44 @@ import { Collection } from "discord.js";
 import { Database } from "./database";
 import { env } from "node:process";
 import { ConnectionConfig } from "mysql";
+import fs from "node:fs";
 
+function getSecret(name: string, defaultSecretName?: string): string | undefined {
+    // 1) Direct env var
+    if (env[name]) {
+        return env[name];
+    }
+
+    // 2) Explicit file path via *_FILE convention
+    const fileVar = env[`${name}_FILE`];
+    if (fileVar && fs.existsSync(fileVar)) {
+        return fs.readFileSync(fileVar, "utf8").trim();
+    }
+
+    // 3) Default Docker secret path
+    const secretName = defaultSecretName ?? name.toLowerCase();
+    const secretPath = `/run/secrets/${secretName}`;
+    if (fs.existsSync(secretPath)) {
+        return fs.readFileSync(secretPath, "utf8").trim();
+    }
+
+    return undefined;
+}
+
+function requireSecret(name: string): string {
+    const value = getSecret(name);
+    if (!value) {
+        throw new Error(`Missing required config: ${name} (env var or Docker secret)`);
+    }
+    return value;
+}
 
 const DB_CONFIG: ConnectionConfig = {
-    host: env.DB_HOST,
-    database: env.DB_NAME,
-    password: env.DB_PASSWORD,
-    port: parseInt(env.DB_PORT as string),
-    user: env.DB_USER
+    host: requireSecret("DB_HOST"),
+    database: requireSecret("DB_NAME"),
+    user: requireSecret("DB_USER"),
+    password: requireSecret("DB_PASSWORD"),
+    port: parseInt(getSecret("DB_PORT") ?? "3306", 10),
 };
 
 export class Commands {
