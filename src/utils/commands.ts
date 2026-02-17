@@ -48,6 +48,7 @@ export class Commands {
     private commands: Collection<string, Collection<string, string>>;
 
     constructor() {
+        console.log(DB_CONFIG.host, DB_CONFIG.port, DB_CONFIG.user, DB_CONFIG.database);
         this.database = new Database(DB_CONFIG);
         this.commands = new Collection<string, Collection<string, string>>(Object.values(CommandType).map(type => [type, new Collection<string, string>()]));
 
