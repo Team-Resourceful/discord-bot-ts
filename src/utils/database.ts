@@ -1,31 +1,23 @@
-import MySql, { Connection, ConnectionConfig } from "mysql";
+import { Pool, PoolConfig } from "pg";
 
 export class Database {
-    private readonly connection: Connection;
+    private readonly pool: Pool;
 
-    constructor(config: string | ConnectionConfig) {
-        this.connection = MySql.createConnection(config)
+    constructor(config: PoolConfig) {
+        this.pool = new Pool(config);
     }
 
-    query(sql: string, values: any): Promise<any> {
-        return new Promise<any>((resolve, reject) => {
-            this.connection.query(sql, values, (err, results) => {
-                if (err) return reject(err);
-                resolve(results);
-            })
-        })
+    async query(sql: string, values?: any[]): Promise<any> {
+        const result = await this.pool.query(sql, values);
+        return result.rows;
     }
 
-    connect(): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            this.connection.connect((err) => {
-                if (err) return reject(err);
-                resolve();
-            });
-        });
+    async connect(): Promise<void> {
+        // simple health check
+        await this.pool.query("SELECT 1");
     }
 
-    getConnection(): Connection {
-        return this.connection;
+    getConnection(): Pool {
+        return this.pool;
     }
 }

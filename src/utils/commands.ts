@@ -1,7 +1,7 @@
 import { Collection } from "discord.js";
 import { Database } from "./database";
 import { env } from "node:process";
-import { ConnectionConfig } from "mysql";
+import { PoolConfig } from "pg";
 import fs from "node:fs";
 
 function getSecret(name: string, defaultSecretName?: string): string | undefined {
@@ -34,12 +34,12 @@ function requireSecret(name: string): string {
     return value;
 }
 
-const DB_CONFIG: ConnectionConfig = {
+const DB_CONFIG: PoolConfig = {
     host: requireSecret("DB_HOST"),
     database: requireSecret("DB_NAME"),
     user: requireSecret("DB_USER"),
     password: requireSecret("DB_PASSWORD"),
-    port: parseInt(getSecret("DB_PORT") ?? "3306", 10),
+    port: parseInt(getSecret("DB_PORT") ?? "5432", 10),
 };
 
 export class Commands {
@@ -56,7 +56,7 @@ export class Commands {
             .then(() => {
                 console.log("connected to database!")
                 for (let type of Object.values(CommandType)) {
-                    this.database.query("SELECT `category`, `key`, `value` FROM `commands` WHERE `category` = ?", [type])
+                    this.database.query("SELECT category, key, value FROM commands WHERE category = $1", [type])
                         .then(async results => {
                             const category = this.commands.get(type);
                             if (category) {
@@ -76,7 +76,7 @@ export class Commands {
     }
 
     remove(category: CommandType, id: string) {
-        this.database.query("DELETE FROM `commands` WHERE `category` = ? AND `key` = ?", [ category, id ])
+        this.database.query("DELETE FROM commands WHERE category = $1 AND key = $2", [category, id])
             .then(() => {
                 this.commands.get(category)?.delete(id)
             })
@@ -86,7 +86,7 @@ export class Commands {
     }
 
     add(category: CommandType, id: string, value: string) {
-        this.database.query("INSERT IGNORE INTO `commands` (`category`, `key`, `value`) VALUES (?)", [[ category, id, value ]])
+        this.database.query("INSERT INTO commands (category, key, value) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", [category, id, value])
             .then(results => {
                 this.commands.get(category)?.set(id, value);
             })
